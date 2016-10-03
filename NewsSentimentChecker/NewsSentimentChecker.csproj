@@ -95,6 +95,8 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="LedController\LedColorEnum.cs" />
+    <Compile Include="LedController\RgbLedController.cs" />
     <Compile Include="Logging\DummyLogger.cs" />
     <Compile Include="Logging\ILog.cs" />
     <Compile Include="SentimentProvider\ISentimentProvider.cs" />

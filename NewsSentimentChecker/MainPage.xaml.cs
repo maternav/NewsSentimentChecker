@@ -20,6 +20,7 @@ using Windows.Data.Json;
 using NewsSentimentChecker.SentimentProvider;
 using NewsSentimentChecker.Logging;
 using Windows.System.Threading;
+using NewsSentimentChecker.LedController;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -31,6 +32,8 @@ namespace NewsSentimentChecker
     public sealed partial class MainPage : Page
     {
         ISentimentProvider sentimentProvider;
+        private readonly RgbLedController ledController;
+
         public MainPage()
         {
             this.InitializeComponent();
@@ -38,19 +41,44 @@ namespace NewsSentimentChecker
             {
                 sentimentProvider = new MicrosoftCognitiveApiSentimentProvider(new DummyLogger());
             }
+            if(ledController == null)
+            {
+                ledController = new RgbLedController();
+            }
 
-
-            int period = 10000;
+            int period = 3;
 
             ThreadPoolTimer PeriodicTimer = ThreadPoolTimer.CreatePeriodicTimer(StartSentimentLoop,
-                                                    TimeSpan.FromMilliseconds(period));
+                                                    TimeSpan.FromHours(period));
+
+            StartSentimentLoop(null);
 
         }
 
 
         private async void StartSentimentLoop(ThreadPoolTimer timer)
         {
-            var overallSentiment = await sentimentProvider.GetSentimentAsync();
+            try
+            {
+                var overallSentiment = await sentimentProvider.GetSentimentAsync();
+
+                if (overallSentiment < .33d)
+                {
+                    ledController.TurnRedOn();
+                }
+                else if (overallSentiment < .66d)
+                {
+                    ledController.TurnYelowOn();
+                }
+                else
+                {
+                    ledController.TurnGreenOn();
+                }
+            }
+            catch(Exception e)
+            {
+                ledController.TurnLedOff();
+            }
         }
 
 
