@@ -24,8 +24,11 @@ namespace NewsSentimentChecker.SentimentProvider
 
         async public Task<double?> GetSentimentAsync()
         {
+            logger.Info($"Getting sentiment");
             await UpdateOverallSentiment();
             var finalResult = GetOverallSentiment();
+
+            logger.Info("Sentiment resolved");
             return finalResult;
         }
 
@@ -46,27 +49,31 @@ namespace NewsSentimentChecker.SentimentProvider
 
         async private Task UpdateSentimentValuesForNewNews(List<News> news)
         {
-            var input = CreateJsonInput(news);
-            //byte[] byteData = System.Text.Encoding.UTF8.GetBytes(input);
-            var uri = new Uri("https://westus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment");
-
-            using (var client = new HttpClient())
+            try
             {
+                var input = CreateJsonInput(news);
+                var uri = new Uri("https://westus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment");
 
-                using (var content = new Windows.Web.Http.HttpStringContent(input, Windows.Storage.Streams.UnicodeEncoding.Utf8, "application/json"))
+                using (var client = new HttpClient())
                 {
-                    client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", AccountKey);
-                    client.DefaultRequestHeaders.Accept.Add(new Windows.Web.Http.Headers.HttpMediaTypeWithQualityHeaderValue("application/json"));
 
-                    var result = await client.PostAsync(uri, content);
+                    using (var content = new Windows.Web.Http.HttpStringContent(input, Windows.Storage.Streams.UnicodeEncoding.Utf8, "application/json"))
+                    {
+                        client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", AccountKey);
+                        client.DefaultRequestHeaders.Accept.Add(new Windows.Web.Http.Headers.HttpMediaTypeWithQualityHeaderValue("application/json"));
 
-                    var resStr = await result.Content.ReadAsStringAsync();
-                    //var resStr = @"{""documents"":[{""score"":0.7213746,""id"":""636099996330000000""},{""score"":0.381423,""id"":""636099993100000000""},{""score"":0.05435185,""id"":""636099968060000000""},{""score"":0.7505028,""id"":""636099960290000000""},{""score"":0.6527786,""id"":""636099946280000000""},{""score"":0.4073813,""id"":""636099914040000000""},{""score"":0.384699,""id"":""636099901550000000""},{""score"":0.7070935,""id"":""636099818230000000""},{""score"":0.6415039,""id"":""636099810610000000""},{""score"":0.4527278,""id"":""636099519160000000""}],""errors"":[]}";
+                        var result = await client.PostAsync(uri, content);
 
-                    MergeUpdatedSentimentsWithCacheValues(resStr);
+                        var resStr = await result.Content.ReadAsStringAsync();
+                        MergeUpdatedSentimentsWithCacheValues(resStr);
+
+                    }
 
                 }
-
+            }
+            catch(Exception e)
+            {
+                logger.Error($"Cognitive service call failed: {e.Message}");
             }
 
 
@@ -128,23 +135,31 @@ namespace NewsSentimentChecker.SentimentProvider
 
         async private Task<List<News>> GetNewNews(DateTime? fromDate)
         {
-            var client = new HttpClient();
-            var uri = new Uri("http://feeds.reuters.com/reuters/topNews");
-            string html = await client.GetStringAsync(uri);
-
-            XElement htmlElement = XElement.Parse(html);
-            var newsItems = htmlElement.Descendants("item");
-
-            var newNews = newsItems.Select(i => new News
+            try
             {
-                DatePublished = DateTime.Parse(i.Descendants("pubDate").First().Value),
-                Title = i.Descendants("title").First().Value
-            })
-            .Where(r => !fromDate.HasValue || r.DatePublished > fromDate)
-            .OrderByDescending(r => r.DatePublished)
-            .ToList();
+                var client = new HttpClient();
+                var uri = new Uri("http://feeds.reuters.com/reuters/topNews");
+                string html = await client.GetStringAsync(uri);
 
-            return newNews;
+                XElement htmlElement = XElement.Parse(html);
+                var newsItems = htmlElement.Descendants("item");
+
+                var newNews = newsItems.Select(i => new News
+                {
+                    DatePublished = DateTime.Parse(i.Descendants("pubDate").First().Value),
+                    Title = i.Descendants("title").First().Value
+                })
+                .Where(r => !fromDate.HasValue || r.DatePublished > fromDate)
+                .OrderByDescending(r => r.DatePublished)
+                .ToList();
+
+                return newNews;
+            }
+            catch(Exception e)
+            {
+                logger.Error(e.Message);
+                return new List<News>();
+            }
         }
     }
 }

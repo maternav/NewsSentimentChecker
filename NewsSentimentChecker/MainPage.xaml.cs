@@ -33,13 +33,16 @@ namespace NewsSentimentChecker
     {
         ISentimentProvider sentimentProvider;
         private readonly RgbLedController ledController;
+        private readonly ILog logger;
 
         public MainPage()
         {
             this.InitializeComponent();
+            logger = new LcdDisplayLogger();
+
             if (sentimentProvider == null)
             {
-                sentimentProvider = new MicrosoftCognitiveApiSentimentProvider(new DummyLogger());
+                sentimentProvider = new MicrosoftCognitiveApiSentimentProvider(logger);
             }
             if(ledController == null)
             {
@@ -61,6 +64,7 @@ namespace NewsSentimentChecker
             try
             {
                 var overallSentiment = await sentimentProvider.GetSentimentAsync();
+                logger.Info($"Current sentiment is {overallSentiment}");
 
                 if (overallSentiment < .33d)
                 {
@@ -77,6 +81,7 @@ namespace NewsSentimentChecker
             }
             catch(Exception e)
             {
+                logger.Fatal(e.Message);
                 ledController.TurnLedOff();
             }
         }
